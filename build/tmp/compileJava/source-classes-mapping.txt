@@ -1,2 +1,8 @@
+org/example/Process.java
+ org.example.Process
+org/example/ReadFile.java
+ org.example.ReadFile
+org/example/Lamport.java
+ org.example.Lamport
 org/example/Main.java
  org.example.Main
