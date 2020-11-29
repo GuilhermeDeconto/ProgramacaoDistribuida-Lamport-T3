@@ -4,10 +4,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Random;
-import java.util.Scanner;
+import java.util.*;
 
 public class Main {
 
@@ -19,8 +16,9 @@ public class Main {
     private static MulticastSocket socket;
     private static Calendar timestemp;
     private static int lamportClock = 0;
-    private static boolean start = true;
+    private static boolean start = false;
     public static ArrayList<Process> process = new ArrayList<Process>();
+    public static HashMap<Integer, Process> connectedProcess = new HashMap<Integer, Process>();
 
     public static void main(String[] args) throws IOException, InterruptedException {
 
@@ -43,21 +41,33 @@ public class Main {
         ReadFile readFile = new ReadFile();
         readFile.readFile();
         process = readFile.getListOfProcess();
+        if(isServer)
+            listening();
+
+
+        int actionCounter = 0;
 
         while (isRunning) {
-            System.out.println("Is Running ");
+            //System.out.println("Is Running ");
             timestemp = Calendar.getInstance();
-            System.out.println("Data1 em milesegundos: " + timestemp.getTimeInMillis());
+            System.out.println(timestemp.getTimeInMillis());
             if (isServer) {
                 //server
-                if(!start)
-                    serverStart(socket);
+                if(!start){
+                    if(connectedProcess.size()==process.size()) {
+                        Thread.sleep(5000);
+                        serverStart(socket);
+                    }
+                }
             } else {
                 //client
                 if(!start) {
+                    clientPing(socket);
                     clientStart(socket);
-                    listening();
+                    if(start)
+                        listening();
                 }else{
+                    actionCounter++;
                     Random r = new Random();
                     int randomNumber = r.nextInt(10);
                     double chance = process.get(processId - 1).chance * 10;
@@ -67,16 +77,16 @@ public class Main {
                     }else{
                         local();
                     }
-
-
                 }
+                if(actionCounter == 100)
+                    System.exit(0);
             }
             Random r2 = new Random();
             int randomNumber = r2.nextInt(6);
             double sleepTime = 0.5 + 0.1 * (randomNumber);
             long sleepTimeMilli = (new Double(sleepTime * 1000)).longValue();
             Thread.sleep(sleepTimeMilli);
-            System.out.println("sleepTime " + sleepTime);
+            //System.out.println("sleepTime " + sleepTime);
 
         }
         socket.leaveGroup(group);
@@ -94,6 +104,73 @@ public class Main {
         }
 
         System.out.println(timestemp.getTimeInMillis() + " " + processId + " " + lamportClock + "" + processId + " s " + (randomProcess + 1));
+        String message = "s " + processId + " " + (randomProcess + 1) + " " + lamportClock;
+        try {
+            byte[] start;
+            start = message.getBytes();
+            DatagramPacket udp = new DatagramPacket(start, start.length, group, port);
+            socket.send(udp);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        waitResponse(randomProcess + 1);
+
+    }
+
+    private static void waitResponse(int recever) {
+
+            Thread thread1 = new Thread() {
+                @Override
+                public void run() {
+                    int counter = 0;
+                    while (counter < 10){
+                        try {
+
+                            Thread.sleep(1000);
+                            counter++;
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    System.out.println("Processo encerrado pela ausencia de resposta");
+                    System.exit(0);
+                }
+            };
+
+        Thread thread2 = new Thread() {
+            @Override
+            public void run() {
+                int counter = 0;
+                while (true){
+                    byte[] response = new byte[2048];
+                    DatagramPacket res = new DatagramPacket(response, response.length);
+                    try{
+                        socket.receive(res);
+                        String data = new String(res.getData(), 0, res.getLength());
+                        System.out.println(data);
+                        if(data.split(" ")[0].equals("r")){
+                            if(data.split(" ")[2].equals(processId + "")){// resposta eh para mim
+                                if(data.split(" ")[1].equals(recever + "")){// resposta eh para quem eu enviei
+                                    thread1.interrupt();
+                                    break;
+                                }
+                            }
+                        }
+
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        };
+
+        thread1.start();
+        thread2.start();
+
+            //try {thread1.join();
+            //} catch (InterruptedException e) {e.printStackTrace();}
+
+
     }
 
     private static void local() {
@@ -111,7 +188,37 @@ public class Main {
                     try{
                         socket.receive(res);
                         String data = new String(res.getData(), 0, res.getLength());
-                        System.out.println(data);
+                        //System.out.println(data);
+                        if(isServer){
+                            if (data.contains("ping:")) {
+                                int newProcess = Integer.parseInt(data.split(":")[1]);
+                                connectedProcess.put(newProcess - 1, process.get(newProcess - 1));
+                            }
+                             //if (data.contains("client:")) {
+                              //  int newProcess = Integer.parseInt(data.split(":")[1]);
+                                //connectedProcess.add(newProcess - 1, process.get(newProcess - 1));
+                             //}
+
+                        }else{//client
+                            if(data.split(" ")[0].equals("s")){
+                                if(data.split(" ")[2].equals(processId + "")){//Recebimento de mensagem
+                                    Integer largerLamport = Math.max(lamportClock, Integer.parseInt(data.split(" ")[3]));
+                                    lamportClock = largerLamport++;
+                                    System.out.println(timestemp.getTimeInMillis() + " " + processId + " " + lamportClock + "" + processId + " r " + data.split(" ")[1] + " " + data.split(" ")[3]);
+
+                                    String message = "r " + processId + " " + data.split(" ")[1];
+                                    try {
+                                        byte[] start;
+                                        start = message.getBytes();
+                                        DatagramPacket udp = new DatagramPacket(start, start.length, group, port);
+                                        socket.send(udp);
+                                    } catch (Exception e) {
+                                        e.printStackTrace();
+                                    }
+                                }
+                            }
+                        }
+
 
 
                     } catch (Exception e) {
@@ -134,26 +241,43 @@ public class Main {
             System.out.println("try ");
             socket.receive(res);
             String data = new String(res.getData(), 0, res.getLength());
-            System.out.println(data); //start
+            ///System.out.println(data); //start
+            if(data.equals("start")){
+                System.out.println("iniciou");
+                byte[] mesResponse;
+                String message = "client:" + processId;
+                mesResponse = message.getBytes();
+                //DatagramPacket udp = new DatagramPacket(mesResponse, mesResponse.length, group, port);
+                //socket.send(udp);
+                start = true;
+            }
         } catch (Exception e) {
             System.out.println("catch ");
             e.printStackTrace();
         }
-        start = true;
+    }
+
+    public static void clientPing(MulticastSocket socket) {
+        String message = "ping:" + processId;
+        try {
+            byte[] start;
+            start = message.getBytes();
+            DatagramPacket udp = new DatagramPacket(start, start.length, group, port);
+            socket.send(udp);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     public static void serverStart(MulticastSocket socket) {
         startServer();
-        Scanner in = new Scanner(System.in);
-        String message = in.nextLine();
+        String message = "start";
         try {
-            if (message.equals("start")) {
                 byte[] start;
                 start = message.getBytes();
                 DatagramPacket udp = new DatagramPacket(start, start.length, group, port);
                 socket.send(udp);
-                System.out.println("Mensagem enviada");
-            }
+                System.out.println("Start");
         } catch (Exception e) {
             e.printStackTrace();
         }

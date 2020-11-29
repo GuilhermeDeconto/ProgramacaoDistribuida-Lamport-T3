@@ -27,6 +27,8 @@ public class ReadFile {
             //error
             e.printStackTrace();
         }
+
+
     }
 
     public int getProcessQuantity() {
