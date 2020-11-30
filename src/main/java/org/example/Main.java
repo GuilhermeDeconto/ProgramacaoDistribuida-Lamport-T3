@@ -31,7 +31,7 @@ public class Main {
         processId = Integer.parseInt(args[0]);
         port = 8888;
         socket = new MulticastSocket(port);
-        group = InetAddress.getByName("224.0.0.0");
+        group = InetAddress.getByName("224.0.0.1");
         socket.joinGroup(group);
         String nickname = args[1];
 
@@ -106,7 +106,7 @@ public class Main {
             randomProcess = r.nextInt(process.size());
             randomProcess += 1;
         }
-
+        timestemp = Calendar.getInstance();
         System.out.println(timestemp.getTimeInMillis() + " " + processId + " " + lamportClock + "" + processId + " s "
                 + (randomProcess));
         String message = "s " + processId + " " + (randomProcess) + " " + lamportClock;
@@ -126,7 +126,7 @@ public class Main {
 
         Thread thread1 = new Thread(() -> {
             int counter = 0;
-            while (counter < 5) {
+            while (counter < 30) {
                 try {
 
                     Thread.sleep(1000);
@@ -136,7 +136,7 @@ public class Main {
                 }
             }
             timestemp = Calendar.getInstance();
-            System.out.println();
+
             System.out.println("Processo encerrado pela ausencia de resposta de " + receiver + " tempo: "
                     + timestemp.getTimeInMillis());
             System.exit(1);
@@ -151,7 +151,7 @@ public class Main {
 
                             if (data.split(" ")[2].equals(processId + "")) {// resposta eh para mim
                                 if (data.split(" ")[1].equals(receiver + "")) {// resposta eh para quem eu enviei
-                                    System.out.println("Entrou mensagem: " + actualMessage);
+                                    //	System.out.println("Entrou mensagem: " + actualMessage);
                                     actualMessage.remove(data);
                                     thread1.stop();
                                     encerrado = true;
@@ -177,6 +177,7 @@ public class Main {
 
     private static void local() {
         lamportClock++;
+        timestemp = Calendar.getInstance();
         System.out.println(timestemp.getTimeInMillis() + " " + processId + " " + lamportClock + "" + processId + " l");
     }
 
@@ -205,11 +206,12 @@ public class Main {
                             if (data.split(" ")[2].equals(processId + "")) {// Recebimento de mensagem
                                 Integer largerLamport = Math.max(lamportClock, Integer.parseInt(data.split(" ")[3]));
                                 lamportClock = largerLamport + 1;
+                                timestemp = Calendar.getInstance();
                                 System.out.println(timestemp.getTimeInMillis() + " " + processId + " " + lamportClock
                                         + "" + processId + " r " + data.split(" ")[1] + " " + data.split(" ")[3]);
 
                                 String message = "r " + processId + " " + data.split(" ")[1];
-                                System.out.println("message: " + message);
+                                //	System.out.println("message: " + message);
                                 try {
                                     byte[] start;
                                     start = message.getBytes();
@@ -220,15 +222,15 @@ public class Main {
                                 }
                             }
                         } else if (data.split(" ")[0].equals("r")) {
-                            System.out.println("data: " + data);
-                            System.out.println(data.split(" ")[2]);
+                            //	System.out.println("data: " + data);
+                            //	System.out.println(data.split(" ")[2]);
 
                             int origin = Integer.parseInt(data.split(" ")[2]);
-                            System.out.println(origin);
-                            System.out.println(processId);
+                            //	System.out.println(origin);
+                            //	System.out.println(processId);
 
                             if (origin == processId) {// resposta eh para mim
-                                System.out.println("Retorno " + data);
+                                //	System.out.println("Retorno " + data);
                                 actualMessage.add(data);
 
                             }
