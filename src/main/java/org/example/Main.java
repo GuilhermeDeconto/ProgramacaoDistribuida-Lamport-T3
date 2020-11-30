@@ -5,7 +5,6 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.util.*;
-import java.util.logging.Handler;
 
 public class Main {
 
@@ -18,9 +17,9 @@ public class Main {
     private static Calendar timestemp;
     private static int lamportClock = 0;
     private static boolean start = false;
-    public static ArrayList<Process> process = new ArrayList<Process>();
-    public static HashMap<Integer, Process> connectedProcess = new HashMap<Integer, Process>();
-    public static String actualMessage;
+    public static ArrayList<Process> process = new ArrayList<>();
+    public static HashMap<Integer, Process> connectedProcess = new HashMap<>();
+    public static ArrayList<String> actualMessage;
 
     public static void main(String[] args) throws IOException, InterruptedException {
 
@@ -43,7 +42,7 @@ public class Main {
         ReadFile readFile = new ReadFile();
         readFile.readFile();
         process = readFile.getListOfProcess();
-        if(isServer)
+        if (isServer)
             listening();
 
 
@@ -54,36 +53,33 @@ public class Main {
             //   timestemp = Calendar.getInstance();
             //   System.out.println(timestemp.getTimeInMillis());
             if (isServer) {
-
                 //server
-                if(!start){
-                    if(connectedProcess.size()==process.size()) {//recebeu ping de todos
-                        Thread.sleep(5000);
+                if (!start) {
+                    if (connectedProcess.size() == process.size()) {//recebeu ping de todos
+//                        Thread.sleep(5000);
                         serverStart(socket);
                     }
                 }
             } else {
                 //client
-                if(!start) {
+                if (!start) {
                     clientPing(socket);
                     clientStart(socket);
-
-                    if(start)
-
+                    if (start)
                         listening();
-                }else{
+                } else {
 
                     Random r = new Random();
                     int randomNumber = r.nextInt(10);
                     double chance = process.get(processId - 1).chance * 10;
 
-                    if(randomNumber < chance){
+                    if (randomNumber < chance) {
                         send();
-                    }else{
+                    } else {
                         local();
                     }
                 }
-                if(lamportClock>=10) {
+                if (lamportClock >= 100) {
                     new Timer().schedule(new TimerTask() {
                         @Override
                         public void run() {
@@ -130,50 +126,44 @@ public class Main {
 
     private static void waitResponse(int receiver) {
 
-        Thread thread1 = new Thread() {
-            @Override
-            public void run() {
-                int counter = 0;
-                while (counter < 10){
-                    try {
+        Thread thread1 = new Thread(() -> {
+            int counter = 0;
+            while (counter < 10) {
+                try {
 
-                        Thread.sleep(1000);
-                        counter++;
-                    } catch (InterruptedException e) {
-                        //e.printStackTrace();
-                    }
+                    Thread.sleep(1000);
+                    counter++;
+                } catch (InterruptedException e) {
+                    //e.printStackTrace();
                 }
-                timestemp = Calendar.getInstance();
-                System.out.println();
-                System.out.println("Processo encerrado pela ausencia de resposta de "+receiver+" tempo: "+ timestemp.getTimeInMillis());
-                System.exit(1);
             }
-        };
+            timestemp = Calendar.getInstance();
+            System.out.println();
+            System.out.println("Processo encerrado pela ausencia de resposta de " + receiver + " tempo: " + timestemp.getTimeInMillis());
+            System.exit(1);
+        });
 
-        Thread thread2 = new Thread() {
-            @Override
-            public void run() {
-
-                while (true){
-
-                    try{
-                        String data = actualMessage;
-                        if(data.split(" ")[0].equals("r")){
-                            if(data.split(" ")[2].equals(processId + "")){// resposta eh para mim
-                                if(data.split(" ")[1].equals(receiver + "")){// resposta eh para quem eu enviei
+        Thread thread2 = new Thread(() -> {
+            while (true) {
+                try {
+                    for (String data : actualMessage) {
+                        if (data.split(" ")[0].equals("r")) {
+                            if (data.split(" ")[2].equals(processId + "")) {// resposta eh para mim
+                                if (data.split(" ")[1].equals(receiver + "")) {// resposta eh para quem eu enviei
                                     System.out.println("1Retorno " + actualMessage);
+                                    actualMessage.remove(data);
                                     thread1.interrupt();
                                     break;
                                 }
                             }
                         }
-
-                    } catch (Exception e) {
-                        //e.printStackTrace();
                     }
+                    break;
+                } catch (Exception e) {
+                    //e.printStackTrace();
                 }
             }
-        };
+        });
 
         thread1.start();
         thread2.start();
@@ -190,61 +180,57 @@ public class Main {
     }
 
     private static void listening() {
-        Thread thread1 = new Thread() {
-            @Override
-            public void run() {
-                while (true){
-                    byte[] response = new byte[2048];
-                    DatagramPacket res = new DatagramPacket(response, response.length);
-                    try{
-                        socket.receive(res);
-                        String data = new String(res.getData(), 0, res.getLength());
-                        actualMessage= data;
-                        //   System.out.println(data);
-                        if(isServer){
-                            if (data.contains("ping:")) {
-                                int newProcess = Integer.parseInt(data.split(":")[1]);
-                                connectedProcess.put(newProcess - 1, process.get(newProcess - 1));
+        Thread thread1 = new Thread(() -> {
+            while (true) {
+                byte[] response = new byte[2048];
+                DatagramPacket res = new DatagramPacket(response, response.length);
+                try {
+                    socket.receive(res);
+                    String data = new String(res.getData(), 0, res.getLength());
+                    //actualMessage = data;
+                    //   System.out.println(data);
+                    if (isServer) {
+                        if (data.contains("ping:")) {
+                            int newProcess = Integer.parseInt(data.split(":")[1]);
+                            connectedProcess.put(newProcess - 1, process.get(newProcess - 1));
+                        }
+                        //if (data.contains("client:")) {
+                        //  int newProcess = Integer.parseInt(data.split(":")[1]);
+                        //connectedProcess.add(newProcess - 1, process.get(newProcess - 1));
+                        //}
+
+                    } else {//client
+                        if (data.split(" ")[0].equals("s")) {
+                            if (data.split(" ")[2].equals(processId + "")) {//Recebimento de mensagem
+                                Integer largerLamport = Math.max(lamportClock, Integer.parseInt(data.split(" ")[3]));
+                                lamportClock = largerLamport++;
+                                System.out.println(timestemp.getTimeInMillis() + " " + processId + " " + lamportClock + "" + processId + " r " + data.split(" ")[1] + " " + data.split(" ")[3]);
+
+                                String message = "r " + processId + " " + data.split(" ")[1];
+                                try {
+                                    byte[] start;
+                                    start = message.getBytes();
+                                    DatagramPacket udp = new DatagramPacket(start, start.length, group, port);
+                                    socket.send(udp);
+                                } catch (Exception e) {
+                                    //e.printStackTrace();
+                                }
                             }
-                            //if (data.contains("client:")) {
-                            //  int newProcess = Integer.parseInt(data.split(":")[1]);
-                            //connectedProcess.add(newProcess - 1, process.get(newProcess - 1));
-                            //}
+                        } else if (data.split(" ")[0].equals("r")) {
+                            if (data.split(" ")[2].equals(processId + "")) {// resposta eh para mim
+                                actualMessage.add(data);
+                                System.out.println("Retorno " + data);
 
-                        }else{//client
-                            if(data.split(" ")[0].equals("s")){
-                                if(data.split(" ")[2].equals(processId + "")){//Recebimento de mensagem
-                                    Integer largerLamport = Math.max(lamportClock, Integer.parseInt(data.split(" ")[3]));
-                                    lamportClock = largerLamport++;
-                                    System.out.println(timestemp.getTimeInMillis() + " " + processId + " " + lamportClock + "" + processId + " r " + data.split(" ")[1] + " " + data.split(" ")[3]);
-
-                                    String message = "r " + processId + " " + data.split(" ")[1];
-                                    try {
-                                        byte[] start;
-                                        start = message.getBytes();
-                                        DatagramPacket udp = new DatagramPacket(start, start.length, group, port);
-                                        socket.send(udp);
-                                    } catch (Exception e) {
-                                        //e.printStackTrace();
-                                    }
-                                }
-                            }else if(data.split(" ")[0].equals("r")){
-                                if(data.split(" ")[2].equals(processId + "")){// resposta eh para mim
-                                    actualMessage= data;
-                                    System.out.println("Retorno " + data);
-
-                                }
                             }
                         }
-
-
-
-                    } catch (Exception e) {
-                        //e.printStackTrace();
                     }
+
+
+                } catch (Exception e) {
+                    //e.printStackTrace();
                 }
             }
-        };
+        });
 
         thread1.start();
 
@@ -255,16 +241,16 @@ public class Main {
     private static void clientStart(MulticastSocket socket) {
         byte[] response = new byte[2048];
         DatagramPacket res = new DatagramPacket(response, response.length);
-        try{
+        try {
             //   System.out.println("try ");
             socket.receive(res);
 
             String data = new String(res.getData(), 0, res.getLength());
             ///System.out.println(data); //start
 
-            if(data.equals("start")){
+            if (data.equals("start")) {
                 timestemp = Calendar.getInstance();
-                System.out.println(processId + " Start " +timestemp.getTimeInMillis());
+                System.out.println(processId + " Start " + timestemp.getTimeInMillis());
                 byte[] mesResponse;
                 String message = "client:" + processId;
                 mesResponse = message.getBytes();
