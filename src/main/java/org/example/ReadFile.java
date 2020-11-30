@@ -1,6 +1,7 @@
 package org.example;
 
 import java.io.File;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
@@ -13,8 +14,8 @@ public class ReadFile {
 
     public void readFile() {
         try {
-            File obj = new File("src/main/resources/config.txt");
-            Scanner reader = new Scanner(obj);
+            InputStream in = this.getClass().getClassLoader().getResourceAsStream("config.txt");
+            Scanner reader = new Scanner(in);
             while (reader.hasNextLine()) {
                 String[] stringArray = reader.nextLine().split(" ");
                 Process process = new Process(Integer.parseInt(stringArray[0]), stringArray[1], Integer.parseInt(stringArray[2]), Double.parseDouble(stringArray[3]));
