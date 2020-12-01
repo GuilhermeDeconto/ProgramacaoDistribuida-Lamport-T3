@@ -31,7 +31,7 @@ public class Main {
         processId = Integer.parseInt(args[0]);
         port = 8888;
         socket = new MulticastSocket(port);
-        group = InetAddress.getByName("224.0.0.1");
+        group = InetAddress.getByName("224.0.0.0");
         socket.joinGroup(group);
         String nickname = args[1];
 
@@ -42,8 +42,8 @@ public class Main {
         ReadFile readFile = new ReadFile();
         readFile.readFile();
         process = readFile.getListOfProcess();
-        if (isServer)
-            listening();
+
+        listening();
 
         int actionCounter = 0;
 
@@ -55,7 +55,7 @@ public class Main {
                 // server
                 if (!start) {
                     if (connectedProcess.size() == process.size()) {// recebeu ping de todos
-//                        Thread.sleep(5000);
+                        Thread.sleep(5000);
                         serverStart(socket);
                     }
                 }
@@ -63,9 +63,8 @@ public class Main {
                 // client
                 if (!start) {
                     clientPing(socket);
-                    clientStart(socket);
-                    if (start)
-                        listening();
+
+
                 } else {
 
                     Random r = new Random();
@@ -202,37 +201,52 @@ public class Main {
                         // }
 
                     } else {// client
-                        if (data.split(" ")[0].equals("s")) {
-                            if (data.split(" ")[2].equals(processId + "")) {// Recebimento de mensagem
-                                Integer largerLamport = Math.max(lamportClock, Integer.parseInt(data.split(" ")[3]));
-                                lamportClock = largerLamport + 1;
+                        if (!start) {
+                            if (data.equals("start")) {
                                 timestemp = Calendar.getInstance();
-                                System.out.println(timestemp.getTimeInMillis() + " " + processId + " " + lamportClock
-                                        + "" + processId + " r " + data.split(" ")[1] + " " + data.split(" ")[3]);
-
-                                String message = "r " + processId + " " + data.split(" ")[1];
-                                //	System.out.println("message: " + message);
-                                try {
-                                    byte[] start;
-                                    start = message.getBytes();
-                                    DatagramPacket udp = new DatagramPacket(start, start.length, group, port);
-                                    socket.send(udp);
-                                } catch (Exception e) {
-                                    // e.printStackTrace();
-                                }
+                                System.out.println(processId + " Start " + timestemp.getTimeInMillis());
+                                byte[] mesResponse;
+                                String message = "client:" + processId;
+                                mesResponse = message.getBytes();
+                                // DatagramPacket udp = new DatagramPacket(mesResponse, mesResponse.length,
+                                // group, port);
+                                // socket.send(udp);
+                                start = true;
                             }
-                        } else if (data.split(" ")[0].equals("r")) {
-                            //	System.out.println("data: " + data);
-                            //	System.out.println(data.split(" ")[2]);
+                        }
+                        else {
+                            if (data.split(" ")[0].equals("s")) {
+                                if (data.split(" ")[2].equals(processId + "")) {// Recebimento de mensagem
+                                    Integer largerLamport = Math.max(lamportClock, Integer.parseInt(data.split(" ")[3]));
+                                    lamportClock = largerLamport + 1;
+                                    timestemp = Calendar.getInstance();
+                                    System.out.println(timestemp.getTimeInMillis() + " " + processId + " " + lamportClock
+                                            + "" + processId + " r " + data.split(" ")[1] + " " + data.split(" ")[3]);
 
-                            int origin = Integer.parseInt(data.split(" ")[2]);
-                            //	System.out.println(origin);
-                            //	System.out.println(processId);
+                                    String message = "r " + processId + " " + data.split(" ")[1];
+                                    //	System.out.println("message: " + message);
+                                    try {
+                                        byte[] start;
+                                        start = message.getBytes();
+                                        DatagramPacket udp = new DatagramPacket(start, start.length, group, port);
+                                        socket.send(udp);
+                                    } catch (Exception e) {
+                                        // e.printStackTrace();
+                                    }
+                                }
+                            } else if (data.split(" ")[0].equals("r")) {
+                                //	System.out.println("data: " + data);
+                                //	System.out.println(data.split(" ")[2]);
 
-                            if (origin == processId) {// resposta eh para mim
-                                //	System.out.println("Retorno " + data);
-                                actualMessage.add(data);
+                                int origin = Integer.parseInt(data.split(" ")[2]);
+                                //	System.out.println(origin);
+                                //	System.out.println(processId);
 
+                                if (origin == processId) {// resposta eh para mim
+                                    //	System.out.println("Retorno " + data);
+                                    actualMessage.add(data);
+
+                                }
                             }
                         }
                     }
@@ -247,33 +261,6 @@ public class Main {
 
         // try {thread1.join();
         // } catch (InterruptedException e) {e.printStackTrace();}
-    }
-
-    private static void clientStart(MulticastSocket socket) {
-        byte[] response = new byte[2048];
-        DatagramPacket res = new DatagramPacket(response, response.length);
-        try {
-            // System.out.println("try ");
-            socket.receive(res);
-
-            String data = new String(res.getData(), 0, res.getLength());
-            /// System.out.println(data); //start
-
-            if (data.equals("start")) {
-                timestemp = Calendar.getInstance();
-                System.out.println(processId + " Start " + timestemp.getTimeInMillis());
-                byte[] mesResponse;
-                String message = "client:" + processId;
-                mesResponse = message.getBytes();
-                // DatagramPacket udp = new DatagramPacket(mesResponse, mesResponse.length,
-                // group, port);
-                // socket.send(udp);
-                start = true;
-            }
-        } catch (Exception e) {
-
-            // e.printStackTrace();
-        }
     }
 
     public static void clientPing(MulticastSocket socket) {
