@@ -125,7 +125,7 @@ public class Main {
 
         Thread thread1 = new Thread(() -> {
             int counter = 0;
-            while (counter < 30) {
+            while (counter < 5) {
                 try {
 
                     Thread.sleep(1000);
